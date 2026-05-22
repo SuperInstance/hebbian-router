@@ -172,12 +172,15 @@ class RoutingLayer:
         for route in candidates:
             if route.fire(chaos=self.chaos):
                 fired.append(route.destination)
-        # Hebbian activation — O(n²)
+        # Hebbian activation — create channels on co-fire
         for i, dst_a in enumerate(fired):
             for dst_b in fired[i + 1:]:
                 key = self._channel_key(dst_a, dst_b)
                 if key in self._channels:
                     self._channels[key].activate()
+                else:
+                    # Auto-create Hebbian channel on first co-fire
+                    self._channels[key] = HebbianChannel(dst_a, dst_b)
         return fired
 
     # ── FAST PATH (vectorized) ───────────────────────────────────────
