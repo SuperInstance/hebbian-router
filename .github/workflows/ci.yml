@@ -1,10 +1,9 @@
 name: CI
-
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   test:
@@ -16,21 +15,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run tests
-        run: pytest --cov=hebbian_router --cov-report=xml
+      - name: Run tests with coverage
+        run: |
+          python -m pytest tests/ -q --tb=short \
+            --cov=hebbian_router \
+            --cov-report=term-missing \
+            --cov-fail-under=75
+
+      - name: Type check
+        run: python -m mypy hebbian_router/ --ignore-missing-imports --warn-unreachable || true
+
+      - name: Lint check
+        run: python -m ruff check hebbian_router/ || true
 
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
+          fail_ci_if_error: false
